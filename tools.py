@@ -20,6 +20,30 @@ class AttrDict(dict):
 
 class Module(tf.Module):
 
+  def save_single(self, model, filename):
+    values = tf.nest.map_structure(lambda x: x.numpy(), model.variables)
+    with pathlib.Path(filename).open('wb') as f:
+      pickle.dump(values, f)
+    
+  def load_meta(self, tasks):
+    for idx, task in enumerate(tasks):
+      filename = '/data/s2965917/dreamer/dreamer/stored_rews_ae/'+task+'.pkl'
+      with pathlib.Path(filename).open('rb') as f:
+        values = pickle.load(f)
+      tf.nest.map_structure(lambda x, y: x.assign(y), self._source_rewards[idx].variables, values)
+    
+  def load_single(self):
+    filename = '/data/s2965917/dreamer/dreamer/stored_ae/encoder.pkl'
+    with pathlib.Path(filename).open('rb') as f:
+      values = pickle.load(f)
+    tf.nest.map_structure(lambda x, y: x.assign(y), self._encode.variables, values)
+    
+    filename = '/data/s2965917/dreamer/dreamer/stored_ae/decoder.pkl'
+    with pathlib.Path(filename).open('rb') as f:
+      values = pickle.load(f)
+    tf.nest.map_structure(lambda x, y: x.assign(y), self._decode.variables, values)
+  
+
   def save(self, filename):
     values = tf.nest.map_structure(lambda x: x.numpy(), self.variables)
     with pathlib.Path(filename).open('wb') as f:
@@ -28,7 +52,108 @@ class Module(tf.Module):
   def load(self, filename):
     with pathlib.Path(filename).open('rb') as f:
       values = pickle.load(f)
-    tf.nest.map_structure(lambda x, y: x.assign(y), self.variables, values)
+    
+####################################################################### Added/modified by remo  
+ #   for var in self.variables:
+ #       if 'dense/' in var.name:
+  #          print(var.name)
+   #         print(var)
+    if self._c.transfer:        
+        #Specification of which variables to not transfer
+        self.exclude_vars = [
+        
+        #Input action weights
+        'dense/kernel:0',
+        'dense/bias:0',
+        
+        # Actor
+        #'dense_4/kernel:0',
+        #'dense_4/bias:0',
+        #'dense_5/kernel:0',
+        #'dense_5/bias:0', 
+        #'dense_6/kernel:0',
+        #'dense_6/bias:0', 
+        #'dense_7/kernel:0', 
+        #'dense_7/bias:0',
+        'dense_8/kernel:0',
+        'dense_8/bias:0',
+        
+        # Critic/Value
+        #'dense_9/kernel:0',
+        #'dense_9/bias:0',
+        #'dense_10/kernel:0',
+        #'dense_10/bias:0',
+        #'dense_11/kernel:0',
+        #'dense_11/bias:0',
+        'dense_12/kernel:0',
+        'dense_12/bias:0',
+        
+        #Last layer reward
+        'dense_3/kernel:0', 
+        'dense_3/bias:0']
+        
+        self.dense_idx = 0
+        
+        tf.nest.map_structure(lambda x, y: self.sub_assign_fac(x,y), self.variables, values)
+    else:
+        tf.nest.map_structure(lambda x, y: x.assign(y), self.variables, values)
+    
+   # for var in self.variables:
+   #     if 'dense/' in var.name:
+    #        print(var.name)
+     #       print(var)
+    
+  def sub_assign(self,x,y):
+    print(x.name)
+    print(x.shape)
+    print(y.shape)
+    
+    if 'dense/' in x.name: #We only want to exclude input action weights but it shares name with other dense layers at the 3rth and 4th appearance
+        self.dense_idx +=1
+        return None if self.dense_idx in [3,4] else x.assign(y)
+    
+    if x.name in self.exclude_vars:
+      return None
+      
+    return x.assign(y)
+    
+  def sub_assign_fac(self,x,y):
+    if x.name in self.exclude_vars:
+      print(x.name)
+      print(x.shape)
+      print(y.shape)
+      fact_y = y * self._c.transfer_factor
+      shape_zero = x.numpy().shape[0]
+      if len(x.numpy().shape)>1:
+          shape_one = x.numpy().shape[1]
+      
+      #As the action layers are likely of different shape we assign the weight indices of up to shape limits (need to consider whether this makes sense)
+      if 'dense_8/k' in x.name: #transfer actor
+        return None
+        y = x.numpy() + fact_y[:,0:shape_one]
+        
+      elif 'dense_8/b' in x.name: #transfer actor bias
+        return None
+        y = x.numpy() + fact_y[0:shape_zero]
+        
+      elif 'dense/' in x.name: #We only want to exclude input action weights but it is concatenated within a dense layer that shares name with other dense layers at the 1st,2nd,5th,6th appearance
+        
+        self.dense_idx +=1
+        if self.dense_idx == 3:
+          action_slice = slice(shape_zero-self._actdim,shape_zero)
+          #transfer action weights factorized  
+          y = y[0:shape_zero]
+          y[action_slice,:] = x.numpy()[action_slice,:]# + fact_y[action_slice,:] only randomize action weights (x.numpy() part) and transfer latent state weights
+            
+        elif self.dense_idx == 4: #transfer bias of latent connections
+          return x.assign(y)
+          #y = x.numpy() + fact_y[0:shape_zero]
+          
+      else: #transfer other components i.e. reward/critic last layer
+        y = x.numpy() + fact_y
+        
+    return x.assign(y)
+######################################################################################################
 
   def get(self, name, ctor, *args, **kwargs):
     # Create or get layer by name to avoid mentioning it in the constructor.
@@ -60,7 +185,8 @@ def graph_summary(writer, fn, *args):
 
 
 def video_summary(name, video, step=None, fps=20):
-  name = name if isinstance(name, str) else name.decode('utf-8')
+  #name = name if isinstance(name, str) else name.decode('utf-8')
+  name = "bugfix"
   if np.issubdtype(video.dtype, np.floating):
     video = np.clip(255 * video, 0, 255).astype(np.uint8)
   B, T, H, W, C = video.shape

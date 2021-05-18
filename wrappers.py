@@ -207,7 +207,7 @@ class PixelObservations(object):
 
   def __init__(
       self, env, size=(64, 64), dtype=np.uint8, key='image',
-      render_mode='rgb_array', name=None, p = None):
+      render_mode='rgb_array', name=None, p = None, robot=None):
     assert isinstance(env.observation_space, gym.spaces.Dict)            
     self._env = env
     self._p = p
@@ -216,6 +216,7 @@ class PixelObservations(object):
     self._dtype = dtype
     self._key = key
     self._render_mode = render_mode
+    self._robot = robot    
 
   def __getattr__(self, name):
     return getattr(self._env, name)
@@ -249,11 +250,33 @@ class PixelObservations(object):
   def _render_image(self):
     #print("bodies: " + str(self._p.getNumBodies()))
     #camTargetPos =[0,0,5]# location of the target (focus) of the camera
-    camTargetPos = self._p.getBasePositionAndOrientation(1)[0]# location of the target (focus) of the camera
+    #print(self._robot.bodyxyz)
+    #print(self._p.getBasePositionAndOrientation(0))    
+    #print(self._p.getBasePositionAndOrientation(1))
+   # print(self._p.getBasePositionAndOrientation(1)[0])
+  #  print(self._p.getNumJoints(0))
+   # print(self._p.getNumJoints(1))
+                        
+    #camTargetPos, _ = self._p.getBasePositionAndOrientation(1)# location of the target (focus) of the camera
+    if "Pendulum" not in self._env._name and "Reacher" not in self._env._name:
+      camTargetPos = self._p.getLinkState(1, 0, computeForwardKinematics=True)[4]
+    else:
+      camTargetPos, _ = self._p.getBasePositionAndOrientation(1)# location of the target (focus) of the camera
+    #print(camTargetPos)
     #print(self._p.getBasePositionAndOrientation(1)[0])
-    camDistance = 10 # camera distance from the target
+    if "Reacher" in self._env._name:
+      camDistance = 1.05 # tilt the camera relative to the target
+    elif "Thrower" in self._env._name or "Pusher" in self._env._name:
+      camDistance = 1.2
+    else:
+      camDistance = 2
     yaw = 0 # yaw angle relative to the target
-    pitch = 0 # tilt the camera relative to the target
+    if "Reacher" in self._env._name:
+      pitch = 90 # tilt the camera relative to the target
+    elif "Pusher" in self._env._name:
+      pitch = 45
+    else:
+      pitch = 0
     roll = 0 # the camera roll angle relative to the target
     upAxisIndex = 2 # vertical axis of the camera (z)
     fov = 60 # camera angle of view
@@ -263,18 +286,22 @@ class PixelObservations(object):
     pixelHeight = 64 # the height of the image is
     aspect = pixelWidth /pixelHeight; # aspect ratio of the image
     # The view matrix is ??
-    viewMatrix = self._p.computeViewMatrixFromYawPitchRoll (camTargetPos, camDistance, yaw, pitch, roll, upAxisIndex)
-    projectionMatrix = self._p.computeProjectionMatrixFOV (fov, aspect, nearPlane, farPlane);
+    viewMatrix = self._p.computeViewMatrixFromYawPitchRoll(camTargetPos, camDistance, yaw, pitch, roll, upAxisIndex)
+    projectionMatrix = self._p.computeProjectionMatrixFOV(fov, aspect, nearPlane, farPlane);
     #Rendering of the image from the camera
-    img_arr = self._p.getCameraImage (pixelWidth, pixelHeight, viewMatrix, projectionMatrix, shadow = 1, lightDirection =[0,1,1], renderer = self._p.ER_TINY_RENDERER)
+    img_arr = self._p.getCameraImage(pixelWidth, pixelHeight, viewMatrix, projectionMatrix, shadow = 1, lightDirection =[0,1,1], renderer = self._p.ER_TINY_RENDERER)
     w = img_arr[0]#width of the image, in pixels
     h = img_arr[1]#height of the image, in pixels
     rgb = img_arr[2]#color data RGB
     dep = img_arr[3]#depth data
     rgba = Image.fromarray(rgb)
+    #plt.imsave('./test1.jpg', np.asarray(rgba).astype(np.uint8))
     rgb_img = Image.new("RGB", (w,h), (255, 255, 255))
+    #plt.imsave('./test2.jpg', np.asarray(rgb_img).astype(np.uint8))
     rgb_img.paste(rgba, mask=rgba.split()[3]) # 3 is the alpha channel
+    #plt.imsave('./test3.jpg', np.asarray(rgb_img).astype(np.uint8))
     image = np.clip(rgb_img, 0, 255).astype(np.uint8)
+   # plt.imsave('./test4.jpg', image)
     return image
 
 class ConvertTo32Bit(object):
@@ -318,16 +345,16 @@ class ConvertTo32Bit(object):
 
 
 class PyBullet:
-  def __init__(self, name, size=(64, 64), camera=None, action_repeat = 4, render=False):
+  def __init__(self, env, name, size=(64, 64), camera=None, action_repeat = 4, render=False):
     
     self._name = name
     self._grayscale = False
-    self._env = gym.make(name,render=render)
+    self._env = env
     self._size = size
     self._action_repeat = action_repeat
     #if camera is None:
     #  camera = dict(quadruped=2).get(domain, 0)
-    self._camera = camera
+    self._camera = env.camera
     shape = self._env.observation_space.shape[:2] + (() if self._grayscale else (3,))
     self._buffers = [np.empty(shape, dtype=np.uint8) for _ in range(2)]
     
@@ -347,6 +374,7 @@ class PyBullet:
 
   def step(self, action):
     _ , reward, done, info = self._env.step(action)
+    print(self._env.p.getLinkState(1, 0, computeForwardKinematics=True)[4])
     obs = self.render('rgb_array')
     image = np.array(Image.fromarray(obs).resize(
         self._size, Image.BILINEAR))
@@ -372,8 +400,9 @@ class PyBullet:
 
 class Collect:
 
-  def __init__(self, env, callbacks=None, precision=32):
+  def __init__(self, env, name, callbacks=None, precision=32):
     self._env = env
+    self._name = name
     self._callbacks = callbacks or ()
     self._precision = precision
     self._episode = None
@@ -386,8 +415,7 @@ class Collect:
     obs = {k: self._convert(v) for k, v in obs.items()}
     transition = obs.copy()
     transition['action'] = action
-    
-    
+    transition['task'] = self._name
     transition['reward'] = reward
     transition['discount'] = info.get('discount', np.array(1 - float(done)))
     self._episode.append(transition)
@@ -404,6 +432,7 @@ class Collect:
     transition = obs.copy()
     transition['action'] = np.zeros(self._env.action_space.shape)
     transition['reward'] = 0.0
+    transition['task'] = self._name
     transition['discount'] = 1.0
     self._episode = [transition]
     return obs
@@ -416,6 +445,8 @@ class Collect:
       dtype = {16: np.int16, 32: np.int32, 64: np.int64}[self._precision]
     elif np.issubdtype(value.dtype, np.uint8):
       dtype = np.uint8
+    elif isinstance(value[0], str):
+      dtype = np.string_
     else:
       raise NotImplementedError(value.dtype)
     return value.astype(dtype)
@@ -558,7 +589,8 @@ class OneHotAction:
 class PadActions(object):
   """Pad action space to the largest action space."""
 
-  def __init__(self, env, spaces):
+  def __init__(self, env, spaces, name):
+    self._name = name
     self._env = env
     self._action_space = self._pad_box_space(spaces)
 

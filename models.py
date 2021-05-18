@@ -29,8 +29,12 @@ class RSSM(tools.Module):
   def observe(self, embed, action, state=None):
     if state is None:
       state = self.initial(tf.shape(action)[0])
+    print(embed.shape)
+    print(action.shape)
     embed = tf.transpose(embed, [1, 0, 2])
     action = tf.transpose(action, [1, 0, 2])
+    print(embed.shape)
+    print(action.shape)
 
     post, prior = tools.static_scan(
         lambda prev, inputs: self.obs_step(prev[0], *inputs),
@@ -69,13 +73,16 @@ class RSSM(tools.Module):
 
   @tf.function
   def img_step(self, prev_state, prev_action):
-    x = tf.concat([prev_state['stoch'], prev_action], -1)
+    print(prev_state)
+    print(prev_state['stoch'].shape)
+    print(prev_action.shape)
+    x = tf.concat([prev_state['stoch'], prev_action], -1) #check possible action weights
     x = self.get('img1', tfkl.Dense, self._hidden_size, self._activation)(x)
     x, deter = self._cell(x, [prev_state['deter']])
     deter = deter[0]  # Keras wraps the state in a list.
     x = self.get('img2', tfkl.Dense, self._hidden_size, self._activation)(x)
     x = self.get('img3', tfkl.Dense, 2 * self._stoch_size, None)(x)
-    mean, std = tf.split(x, 2, -1)
+    mean, std = tf.split(x, 2, -1) 
     std = tf.nn.softplus(std) + 0.1
     stoch = self.get_dist({'mean': mean, 'std': std}).sample()
     prior = {'mean': mean, 'std': std, 'stoch': stoch, 'deter': deter}
@@ -87,9 +94,9 @@ class ConvEncoder(tools.Module):
   def __init__(self, depth=32, act=tf.nn.relu):
     self._act = act
     self._depth = depth
-
+    
   def __call__(self, obs):
-    kwargs = dict(strides=2, activation=self._act)
+    kwargs = dict(strides=2, activation=self._act) 
     x = tf.reshape(obs['image'], (-1,) + tuple(obs['image'].shape[-3:]))
     x = self.get('h1', tfkl.Conv2D, 1 * self._depth, 4, **kwargs)(x)
     x = self.get('h2', tfkl.Conv2D, 2 * self._depth, 4, **kwargs)(x)
@@ -97,6 +104,14 @@ class ConvEncoder(tools.Module):
     x = self.get('h4', tfkl.Conv2D, 8 * self._depth, 4, **kwargs)(x)
     shape = tf.concat([tf.shape(obs['image'])[:-3], [32 * self._depth]], 0)
     return tf.reshape(x, shape)
+        
+  def freeze(self):
+    kwargs = dict(strides=2, activation=self._act) 
+    print(len(self.get('h1', tfkl.Conv2D, 1 * self._depth, 4, **kwargs).trainable_weights))# = False
+    print(len(self.get('h2', tfkl.Conv2D, 2 * self._depth, 4, **kwargs).trainable_weights))# = False
+    print(len(self.get('h3', tfkl.Conv2D, 4 * self._depth, 4, **kwargs).trainable_weights))# = False
+    print(len(self.get('h4', tfkl.Conv2D, 8 * self._depth, 4, **kwargs).trainable_weights))# = False
+    print("froze it")
 
 
 class ConvDecoder(tools.Module):
@@ -133,13 +148,124 @@ class DenseDecoder(tools.Module):
       x = self.get(f'h{index}', tfkl.Dense, self._units, self._act)(x)
     x = self.get(f'hout', tfkl.Dense, np.prod(self._shape))(x)
     x = tf.reshape(x, tf.concat([tf.shape(features)[:-1], self._shape], 0))
+    if self._dist == 'tensor':
+        return x
     if self._dist == 'normal':
       return tfd.Independent(tfd.Normal(x, 1), len(self._shape))
     if self._dist == 'binary':
       return tfd.Independent(tfd.Bernoulli(x), len(self._shape))
     raise NotImplementedError(self._dist)
 
+#Added by Remo
+#Meta decoder which takes as input the output of pretrained reward models together with the latent state
+class MetaDecoder1(tools.Module):
+    def __init__(self,shape,layers,units,dist='normal',act=tf.nn.elu):
+        self._shape = shape
+        self._layers = layers
+        self._units = units
+        self._dist = dist
+        self._act = act
+    
+    def __call__(self, state, tasks, sources, imagined=False):
+        stoch = state['stoch']
+        det = state['deter']
+        rews = sources #Predictions of stored models
+        rews = tf.transpose(rews, [2,1,0])
+        stoch = tf.transpose(stoch,[1,0,2])
+        det = tf.transpose(det,[1,0,2])
+        features = tf.concat([stoch,det], -1)
+        #Process input
+        x = features
+        for index in range(self._layers):
+          x = self.get(f'h{index}', tfkl.Dense, self._units, self._act)(x)
+        x = self.get(f'hout', tfkl.Dense, np.prod(self._shape))(x)
+        x = tf.reshape(x, tf.concat([tf.shape(features)[:-1], self._shape], 0))
+        x = tf.transpose(x,[1,0])
+        if self._dist == 'normal':
+          return tfd.Independent(tfd.Normal(x, 1), len(self._shape))
+        if self._dist == 'binary':
+          return tfd.Independent(tfd.Bernoulli(x), len(self._shape))
+        raise NotImplementedError(self._dist)
 
+
+#Added by Remo
+#Meta decoder which takes as input the output of pretrained reward models together with the latent state
+class MetaDecoder2(tools.Module):
+    def __init__(self,rewards,shape,layers,units,dist='normal',act=tf.nn.elu):
+        self._rewards = rewards
+        self._shape = shape
+        self._layers = layers
+        self._units = units
+        self._dist = dist
+        self._act = act
+    
+    def __call__(self, state, tasks, imagined=False):
+        to_return = [] 
+        rews = []
+        if imagined:
+            it_range = len(state['stoch'][1]) #250 imagined trajectories of 15
+        else:
+            it_range = len(state['stoch']) #5 episodes of 50 states
+        
+        if imagined:
+            stochy = tf.transpose(state['stoch'],[1,0,2])
+            dety = tf.transpose(state['deter'],[1,0,2])
+            divisor = 50
+        else:
+            stochy = state['stoch']
+            dety = state['deter']
+            divisor = 1
+                        
+        for idx in range(0,len(stochy),divisor):
+            i = idx
+            task = tasks[int(idx/divisor)][0].decode("utf-8")   
+            if imagined:
+                idx = slice(idx,idx+divisor)                      
+            if "Walker" in task:
+                pred = self._rewards[0](tf.concat([stochy[idx], dety[idx]], -1))
+            elif "Hopper" in task:
+                pred = self._rewards[1](tf.concat([stochy[idx], dety[idx]], -1))
+            else:
+                rews = [rew(tf.concat([stochy[idx], dety[idx]], -1)) for rew in self._rewards] #Compute predictions of stored models
+                
+                
+                #Make tensors compatible for conactenation
+                if imagined:
+                    rews = tf.transpose(rews,[1,2,0])
+                else:
+                    rews = tf.transpose(rews, [1,0])
+                stoch = stochy[idx] #tf.transpose(state['stoch'][idx],[1,0,2])
+                det = dety[idx] # tf.transpose(state['deter'][idx],[1,0,2])
+                features = tf.concat([rews,stoch,det], -1)
+                
+                #Process input
+                x = features
+                for index in range(self._layers):
+                  x = self.get(f'h{index}', tfkl.Dense, self._units, self._act)(x)
+                x = self.get(f'hout', tfkl.Dense, np.prod(self._shape))(x)
+                pred = tf.reshape(x, tf.concat([tf.shape(features)[:-1], self._shape], 0)) #before it was x=
+                #x = tf.transpose(x,[1,0])
+                #if self._dist == 'normal':
+                 # pred = tfd.Independent(tfd.Normal(x, 1), len(self._shape))
+                #if self._dist == 'binary':
+                 # pred = tfd.Independent(tfd.Bernoulli(x), len(self._shape))
+            if imagined:
+                pred = tf.transpose(pred,[1,0])
+                if i == 0:
+                    to_return = pred
+                else:
+                    to_return = tf.concat([to_return,pred],-1)
+            else:
+                to_return.append(pred)
+        #if imagined:
+         # to_return = tf.transpose(to_return,[1,0])
+        return tfd.Independent(tfd.Normal(to_return, 1), len(self._shape))
+                    #if self._dist == 'normal':
+                 # return tfd.Independent(tfd.Normal(x, 1), len(self._shape))
+                #if self._dist == 'binary':
+                 # return tfd.Independent(tfd.Bernoulli(x), len(self._shape))
+               # raise NotImplementedError(self._dist)
+               
 class ActionDecoder(tools.Module):
 
   def __init__(
