@@ -156,7 +156,6 @@ class DenseDecoder(tools.Module):
       return tfd.Independent(tfd.Bernoulli(x), len(self._shape))
     raise NotImplementedError(self._dist)
 
-#Added by Remo
 #Meta decoder which takes as input the output of pretrained reward models together with the latent state
 class MetaDecoder1(tools.Module):
     def __init__(self,shape,layers,units,dist='normal',act=tf.nn.elu):
@@ -188,7 +187,6 @@ class MetaDecoder1(tools.Module):
         raise NotImplementedError(self._dist)
 
 
-#Added by Remo
 #Meta decoder which takes as input the output of pretrained reward models together with the latent state
 class MetaDecoder2(tools.Module):
     def __init__(self,rewards,shape,layers,units,dist='normal',act=tf.nn.elu):
