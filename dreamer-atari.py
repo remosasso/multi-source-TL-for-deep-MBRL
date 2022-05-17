@@ -427,7 +427,7 @@ def main(config):
 
   print("created environments")
   
-  # Prefill dataset with random episodes, one for each game (remo).
+  # Prefill dataset with random episodes, one for each game.
   step = count_steps(datadir, config)
   prefill = max(0, config.prefill - step)
   print(f'Prefill dataset with {prefill} steps.')
