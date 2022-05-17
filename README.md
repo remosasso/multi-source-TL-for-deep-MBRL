@@ -2,7 +2,7 @@
 ## Transfer Learning and Multi-Task Learning
 For training a multi task agent: 
 ```
-python dreamer-pybullet.py --task1 HopperBulletEnv-v0 --task2 AntBulletEnv-v0 --task3 HalfCheetahBulletEnv-v0 --batch_length 50 --envs 3 --steps 2e6 --transfer False --logdir './logdir/'
+python dreamer-multi-task.py --task1 HopperBulletEnv-v0 --task2 AntBulletEnv-v0 --task3 HalfCheetahBulletEnv-v0 --batch_length 50 --envs 3 --steps 2e6 --transfer False --logdir './logdir/'
 ```
 
 For modular and fractional transfer learning, first place the variables of the source agent in the folder you are about to train the target agent in. Then:
