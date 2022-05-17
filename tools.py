@@ -53,7 +53,7 @@ class Module(tf.Module):
     with pathlib.Path(filename).open('rb') as f:
       values = pickle.load(f)
     
-####################################################################### Added/modified by remo  
+######################################################################
  #   for var in self.variables:
  #       if 'dense/' in var.name:
   #          print(var.name)
@@ -67,6 +67,7 @@ class Module(tf.Module):
         'dense/bias:0',
         
         # Actor
+          
         #'dense_4/kernel:0',
         #'dense_4/bias:0',
         #'dense_5/kernel:0',
