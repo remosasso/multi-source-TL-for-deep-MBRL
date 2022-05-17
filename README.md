@@ -61,3 +61,19 @@ Graphs and GIFs:
 ```
 tensorboard --logdir ./logdir
 ```
+
+## Transfer Learning and Multi-Task Learning
+For training a multi task agent: 
+```
+python dreamer-pybullet.py --task1 HopperBulletEnv-v0 --task2 AntBulletEnv-v0 --task3 HalfCheetahBulletEnv-v0 --batch_length 50 --envs 3 --steps 2e6 --transfer False --logdir './logdir/'
+```
+
+For modular and fractional transfer learning, first place the variables of the source agent in the folder you are about to train the target agent in. Then:
+```
+python dreamer-pybullet.py --task1 HalfCheetahBulletEnv-v0 --batch_length 50 --envs 1 --steps 1e6 --transfer True --transfer_factor 0.2 --logdir './logdir/frac-cheetah/'
+```
+
+For meta-model transfer learning, first locally make use of functions agent.load() and agent.save_single() to load the variables of a multi-task agent, and then to save the corresponding autoencoder. Then you can train single agents with the frozen autoencoder using 'dreamer-metajob.py'. Then when wanting to do meta-model transfer learning run e.g.:
+```
+python dreamer-metajob.py --n_meta 2 --meta1 HalfCheetahBulletEnv-v0 --meta2 AntBulletEnv-v0 --batch_length 50 --envs 1 --steps 1e6 --logdir './logdir/meta/'
+```
