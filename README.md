@@ -10,7 +10,7 @@ For modular and fractional transfer learning, first place the variables of the s
 python dreamer-pybullet.py --task1 HalfCheetahBulletEnv-v0 --batch_length 50 --envs 1 --steps 1e6 --transfer True --transfer_factor 0.2 --logdir './logdir/frac-cheetah/'
 ```
 
-For meta-model transfer learning, first locally make use of functions agent.load() and agent.save_single(agent._encode, "./encoder.pkl") to load the variables of a multi-task agent, and then to save the corresponding autoencoder. Then you can train single agents with the frozen autoencoder using 'dreamer-metajob.py' (same as above but with metajob.py). You can then save the reward models similarly to saving the autoencoder with agent.save_single(agent._reward, "./reward.pkl"). Then, when wanting to do meta-model transfer learning, run e.g.:
+For meta-model transfer learning, first locally make use of functions ```agent.load('./logdir/variables.pkl')``` and ```agent.save_single(agent._encode, "./encoder.pkl")``` to load the variables of a multi-task agent, and then to save the corresponding autoencoder. Then you can train single agents with the frozen autoencoder using 'dreamer-metajob.py' (same as above but with metajob.py). You can then save the reward models similarly to saving the autoencoder with ```agent.save_single(agent._reward, "./reward.pkl")```. Then, when wanting to do meta-model transfer learning, run e.g.:
 ```
 python dreamer-metajob.py --task1 HopperBulletEnv-v0 --n_meta 2 --meta1 HalfCheetahBulletEnv-v0 --meta2 AntBulletEnv-v0 --batch_length 50 --envs 1 --steps 1e6 --logdir './logdir/meta/'
 ```
