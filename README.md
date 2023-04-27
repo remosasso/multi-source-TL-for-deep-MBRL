@@ -1,9 +1,9 @@
 # Multi-Source Tranfser Learning for Deep Model-Based Reinforcement Learning [[Paper](https://openreview.net/pdf?id=1nhTDzxxMA)]
 
 ## Multi-Task Learning
-For training a multi task agent: 
+For training a multi task agent with, say, the Hopper, Ant, and Cheetah task for 2M environment steps: 
 ```
-python dreamer-multi-task.py --task1 HopperBulletEnv-v0 --task2 AntBulletEnv-v0 --task3 HalfCheetahBulletEnv-v0 --batch_length 50 --envs 3 --steps 2e6 --transfer False --logdir './logdir/'
+python dreamer-multi-task.py --task1 HopperBulletEnv-v0 --task2 AntBulletEnv-v0 --task3 HalfCheetahBulletEnv-v0 --batch_length 50 --envs 3 --steps 2e6 --logdir './logdir/multi-hopper-ant-cheetah'
 ```
 
 ## Modular and Fractional Transfer Learning
