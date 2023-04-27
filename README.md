@@ -1,20 +1,26 @@
+# Multi-Source Tranfser Learning for Deep Model-Based Reinforcement Learning [[Paper](https://openreview.net/pdf?id=1nhTDzxxMA)]
 
-## Transfer Learning and Multi-Task Learning
+## Multi-Task Learning
 For training a multi task agent: 
 ```
 python dreamer-multi-task.py --task1 HopperBulletEnv-v0 --task2 AntBulletEnv-v0 --task3 HalfCheetahBulletEnv-v0 --batch_length 50 --envs 3 --steps 2e6 --transfer False --logdir './logdir/'
 ```
 
-For modular and fractional transfer learning, first place the variables of the source agent in the folder you are about to train the target agent in. Then:
+## Modular and Fractional Transfer Learning
+For modular and fractional transfer learning, first place the variables of the source (multi-task) agent in the folder for the agent you are about to train. Say we transfer to a HalfCheetah agent, we create a folder ```'./logdir/frac-cheetah/'```, place the variables.pkl of the multi-task agent in that folder, and then run:
 ```
-python dreamer-pybullet.py --task1 HalfCheetahBulletEnv-v0 --batch_length 50 --envs 1 --steps 1e6 --transfer True --transfer_factor 0.2 --logdir './logdir/frac-cheetah/'
+python dreamer-FTL.py --task1 HalfCheetahBulletEnv-v0 --batch_length 50 --envs 1 --steps 1e6 --transfer True --transfer_factor 0.2 --logdir './logdir/frac-cheetah/'
+```
+<img src="https://github.com/remosasso/multi-source-TL-for-deep-MBRL/blob/main/images/ftlgit.png" width=20% height=20%>
+
+
+
+For meta-model transfer learning, first locally make use of functions ```agent.load('./logdir/variables.pkl')``` and ```agent.save_single(agent._encode, "./encoder.pkl")``` to load the variables of a multi-task agent, and then to save the corresponding autoencoder in ```'./logdir/'```. Then you can train single agents with the frozen autoencoder using 'dreamer-MMTL.py'. You can then save the reward models similarly to saving the autoencoder with ```agent.save_single(agent._reward, "./stored_meta/cheetah.pkl")```. Say we trained a HalfCheetah and Ant agent with the UFS frozen autoencoder, we place the aforementioned reward parameters in ```'./stored_meta/'```. Then, when wanting to perform MMTL, run e.g.:
+```
+python dreamer-MMTL.py --task1 HopperBulletEnv-v0 --n_meta 2 --meta1 HalfCheetahBulletEnv-v0 --meta2 AntBulletEnv-v0 --batch_length 50 --envs 1 --steps 1e6 --logdir './logdir/mmtl-hopper/'
 ```
 
-For meta-model transfer learning, first locally make use of functions ```agent.load('./logdir/variables.pkl')``` and ```agent.save_single(agent._encode, "./encoder.pkl")``` to load the variables of a multi-task agent, and then to save the corresponding autoencoder. Then you can train single agents with the frozen autoencoder using 'dreamer-metajob.py' (same as above but with metajob.py). You can then save the reward models similarly to saving the autoencoder with ```agent.save_single(agent._reward, "./reward.pkl")```. Then, when wanting to do meta-model transfer learning, run e.g.:
-```
-python dreamer-metajob.py --task1 HopperBulletEnv-v0 --n_meta 2 --meta1 HalfCheetahBulletEnv-v0 --meta2 AntBulletEnv-v0 --batch_length 50 --envs 1 --steps 1e6 --logdir './logdir/meta/'
-```
-
+<img src="https://github.com/remosasso/multi-source-TL-for-deep-MBRL/blob/main/images/mmtlfinal.png" width=40% height=40%>
 See below for general Dreamer requirements and instructions.
 
 ____________________________________________________________________________________________________________________________________________________________
