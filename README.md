@@ -1,5 +1,5 @@
 # Multi-Source Tranfser Learning for Deep Model-Based Reinforcement Learning
-Code for the [paper](https://arxiv.org/pdf/2205.14410.pdf) Multi-Source Tranfser Learning for Deep Model-Based Reinforcement Learning published in Transactions on Machine Learning Research. 
+Code for the [paper](https://arxiv.org/abs/2205.14410?context=cs.AI) Multi-Source Tranfser Learning for Deep Model-Based Reinforcement Learning published in Transactions on Machine Learning Research. 
 
 ## Multi-Task Learning
 For training a multi task agent with, say, the Hopper, Ant, and Cheetah task for 2M environment steps: 
