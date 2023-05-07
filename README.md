@@ -1,6 +1,13 @@
 # Multi-Source Tranfser Learning for Deep Model-Based Reinforcement Learning
-Code for the [paper](https://arxiv.org/abs/2205.14410?context=cs.AI) Multi-Source Tranfser Learning for Deep Model-Based Reinforcement Learning published in Transactions on Machine Learning Research. 
-
+Code for the [paper](https://arxiv.org/abs/2205.14410?context=cs.AI) Multi-Source Tranfser Learning for Deep Model-Based Reinforcement Learning. If this code was useful to your research, please acknowledge it:
+```
+@article{sasso2023posterior,
+      title={Posterior Sampling for Deep Reinforcement Learning}, 
+      author={Sasso, Remo and Sabatelli, Matthia and Wiering A., Marco},
+      journal={arXiv preprint arXiv:2205.14410},
+      year={2023}
+}
+```
 ## Multi-Task Learning
 For training a multi task agent with, say, the Hopper, Ant, and Cheetah task for 2M environment steps: 
 ```
