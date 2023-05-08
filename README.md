@@ -8,8 +8,7 @@ Code for the [paper](https://arxiv.org/abs/2205.14410?context=cs.AI) Multi-Sourc
       journal={Transactions on Machine Learning Research},
       issn={2835-8856},
       year={2023},
-      url={https://openreview.net/forum?id=1nhTDzxxMA},
-      note={}
+      url={https://openreview.net/forum?id=1nhTDzxxMA}
 }
 ```
 
