@@ -1,11 +1,15 @@
 # Multi-Source Tranfser Learning for Deep Model-Based Reinforcement Learning
 Code for the [paper](https://arxiv.org/abs/2205.14410?context=cs.AI) Multi-Source Tranfser Learning for Deep Model-Based Reinforcement Learning. If this code was useful to your research, please acknowledge it:
 ```
-@article{sasso2023posterior,
-      title={Posterior Sampling for Deep Reinforcement Learning}, 
-      author={Sasso, Remo and Sabatelli, Matthia and Wiering A., Marco},
-      journal={arXiv preprint arXiv:2205.14410},
-      year={2023}
+@article{
+      sasso2023multisource,
+      title={Multi-Source Transfer Learning for Deep Model-Based Reinforcement Learning},
+      author={Remo Sasso and Matthia Sabatelli and Marco A. Wiering},
+      journal={Transactions on Machine Learning Research},
+      issn={2835-8856},
+      year={2023},
+      url={https://openreview.net/forum?id=1nhTDzxxMA},
+      note={}
 }
 ```
 
