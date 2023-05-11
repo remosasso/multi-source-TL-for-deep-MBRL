@@ -13,7 +13,7 @@ Code for the [paper](https://arxiv.org/abs/2205.14410?context=cs.AI) Multi-Sourc
 ```
 
 ## Instructions
-Please see the [Dreamer repository](https://github.com/google-research/dreamer) for general dependency requirements and instructions.
+Please see the [Dreamer repository](https://github.com/google-research/dreamer) for general dependency requirements and installation instructions.
 ### Multi-Task Learning
 For training a multi task agent with, say, the Hopper, Ant, and Cheetah task for 2M environment steps: 
 ```
